@@ -49,33 +49,46 @@ CONFIG_FILE="configs/retinanet/retinanet_x101-64x4d_fpn_1x_coco.py"
 cfg = Config.fromfile(CONFIG_FILE)
 cfg.work_dir = "./work_dirs/" # needed for runner
 model = init_detector(CONFIG_FILE, CHECKPOINT_FILE, device='cuda:0')
-runner = Runner.from_cfg(cfg)
-data_loader = runner.build_dataloader(cfg.test_dataloader)
+runner_original = Runner.from_cfg(cfg)
+runner_pertubed = Runner.from_cfg(cfg)
+data_loader = runner_original.build_dataloader(cfg.test_dataloader)
 
 original_results = []
 perturbed_results = []
 
+# only use part of data
+from itertools import islice
+num_minibatches = 5
+debug_data = islice(data_loader, num_minibatches)
+
 # Inference
-for i, data in enumerate(data_loader):
+for i, data in enumerate(debug_data):
     # Run inference on original images
+    print(data['inputs'][0])
+    
+    images = data['inputs']
+    image =  torch.stack(images, dim=0).to('cuda').float()
+
     with torch.no_grad():
-        original_result = model(**data)
+        original_result = model(image)
+    runner_original.val_evaluator
     original_results.append(original_result)
 
     # Apply adversarial attack to the images
-    perturbed_images = apply_adversarial_attack(data['img'][0], model)
-    perturbed_data = dict(img=[perturbed_images], img_metas=data['img_metas'])
+    perturbed_image = apply_adversarial_attack(image, model)
+    # perturbed_images = apply_adversarial_attack(image, model)
+    # perturbed_data = dict(inputs=[perturbed_images], img_metas=data['img_metas'])
     
     # Run inference on perturbed images
     with torch.no_grad():
-        perturbed_result = model(**perturbed_data)
+        perturbed_result = model(perturbed_image)
     perturbed_results.append(perturbed_result)
 
 # Evaluation
-evaluator = runner.build_evaluator(cfg.evaluation.metric)
-eval_results_original = evaluator.evaluate(original_results)
+evaluator = runner.build_evaluator(cfg.val_evaluator)
+eval_results_original = evaluator.compute_metrics(original_results)
 evaluator.reset()
-eval_results_perturbed = evaluator.evaluate(perturbed_results)
+eval_results_perturbed = evaluator.compute_metrics(perturbed_results)
 print(f'Original images evaluation results:\n{eval_results_original}')
 print(f'Perturbed images evaluation results:\n{eval_results_perturbed}')
 
