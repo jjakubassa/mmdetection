@@ -18,6 +18,7 @@ CONFIG_FILE="configs/retinanet/retinanet_x101-64x4d_fpn_1x_coco.py"
 ALPHA=2.55
 STEPS=5
 EPSILON=16
+ATTACK="gpd"  # "pgd", "fgsm", "cospgd", "none"
 
 # Start job
 cd .. 
@@ -26,7 +27,7 @@ cd ..
 python adv_attack.py --config_file ${CONFIG_FILE} --checkpoint_file ${CHECKPOINT_FILE} --steps $EPSILON --alpha ${ALPHA} --epsilon ${EPSILON}
 
 ## Compare performance without attack
-python adv_attack.py --config_file ${CONFIG_FILE} --checkpoint_file ${CHECKPOINT_FILE} --steps $EPSILON --alpha ${ALPHA} --epsilon ${EPSILON} --no_attack
+python adv_attack.py --config_file ${CONFIG_FILE} --checkpoint_file ${CHECKPOINT_FILE} --steps $EPSILON --alpha ${ALPHA} --epsilon ${EPSILON} --attack 
 
 
 
