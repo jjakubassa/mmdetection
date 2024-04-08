@@ -12,6 +12,8 @@ import cospgd
 
 
 # TODO: Is from Cospgd Github  -> how to change?
+
+
 def fgsm_attack(self, perturbed_image, data_grad, orig_image):
     # Collect the element-wise sign of the data gradient
     sign_data_grad = data_grad.sign()
@@ -32,21 +34,6 @@ def fgsm_attack(self, perturbed_image, data_grad, orig_image):
         delta = delta * factor.view(-1, 1, 1, 1)
     perturbed_image = torch.clamp(orig_image + delta, 0, 1)
     # Return the perturbed image
-    return perturbed_image
-
-
-def apply_adversarial_attack(image, model, attack_type="fgsm"):
-    # TODO: do a proper attack
-    if attack_type == "fgsm":
-        perturbed_image = image.clone().detach().to("cuda")
-        perturbed_image.requires_grad = True
-        # TODO: look in evaluation file how do they calculate loss?
-    elif attack_type == "pgd":
-        raise NotImplementedError(f"Attack type {attack_type} not implemented yet")
-    elif attack_type == "cospgd":
-        raise NotImplementedError(f"Attack type {attack_type} not implemented yet")
-    else:
-        raise NotImplementedError(f"Attack type {attack_type} not implemented")
     return perturbed_image
 
 
@@ -72,8 +59,11 @@ debug_data = islice(data_loader, num_minibatches)
 attack_steps = 10
 attack = "cospgd"
 num_classes = 80
+
 EPSILON = 8
 ALPHA = 0.01 * 255
+TARGETED = False
+NORM = "two"
 
 # Inference
 for i, data_batch in enumerate(debug_data):
@@ -82,19 +72,44 @@ for i, data_batch in enumerate(debug_data):
     images = torch.stack(images, dim=0).float()
     images_pertubed = images.clone().detach().to("cuda").requires_grad_(True)
 
-    labels = data_batch["data_samples"][0].gt_instances.labels
-    bboxes = data_batch["data_samples"][0].gt_instances.bboxes
+    # labels = data_batch["data_samples"][0].gt_instances.labels
+    # bboxes = data_batch["data_samples"][0].gt_instances.bboxes
 
-    images_pertubed = cospgd.functions.init_l2(
-        images=images_pertubed, epsilon=EPSILON, clamp_min=0, clamp_max=255
-    )
+    # images_pertubed = cospgd.functions.init_l2(
+    #     images=images_pertubed, epsilon=EPSILON, clamp_min=0, clamp_max=255
+    # )
 
     data_preprocessed = model.data_preprocessor(data_batch, training=False)
 
     for _ in range(attack_steps):
+        losses = model(**data_preprocessed, mode="loss")
+        data_grad = data_preprocessed["in"]
+
+        # Collect the element-wise sign of the data gradient
+        sign_data_grad = data_grad.sign()
+        # Create the perturbed image by adjusting each pixel of the input image
+        if TARGETED:
+            sign_data_grad *= -1
+        perturbed_image = perturbed_image.detach() + alpha * sign_data_grad
+        # Adding clipping to maintain [0,1] range
+        if NORM == "inf":
+            delta = torch.clamp(
+                perturbed_image - orig_image, min=-1 * epsilon, max=epsilon
+            )
+        elif NORM == "two":
+            delta = perturbed_image - orig_image
+            delta_norms = torch.norm(delta.view(batch_size, -1), p=2, dim=1)
+            factor = EPSILON / delta_norms
+            factor = torch.min(factor, torch.ones_like(delta_norms))
+            delta = delta * factor.view(-1, 1, 1, 1)
+        perturbed_image = torch.clamp(orig_image + delta, 0, 1)
+
+        # Return the perturbed image
+        return perturbed_image
+
         # P = model(images_pertubed)
-        P = model(**data_preprocessed, mode="predict")
-        losses = model(**data_preprocessed, mode="loss")  # avoid second forward pass
+        # P = model(**data_preprocessed, mode="predict")
+        # losses = model(**data_preprocessed, mode="loss")  # avoid second forward pass
 
         # loss = sigmoid_focal_loss(inputs=images_pertubed, targets=labels)
 

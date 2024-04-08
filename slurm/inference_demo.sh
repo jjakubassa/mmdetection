@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=gpu_4
 #SBATCH --gres=gpu:1
-#SBATCH --time=01:00:00
+#SBATCH --time=03:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
@@ -19,3 +19,6 @@ CHECKPOINT_FILE="checkpoints/retinanet_x101_64x4d_fpn_1x_coco_20200130-366f5af1.
 CONFIG_FILE="configs/retinanet/retinanet_x101-64x4d_fpn_1x_coco.py"
 
 python tools/test.py ${CONFIG_FILE} ${CHECKPOINT_FILE}
+
+
+
