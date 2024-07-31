@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import math
 from typing import List, Optional, Tuple
 
 import torch
@@ -646,7 +647,10 @@ class TOODHead(ATSSHead):
         # get epoch information from message hub
         message_hub = MessageHub.get_current_instance()
         self.epoch = message_hub.get_info('epoch')
-
+        
+        if self.epoch is None:
+            self.epoch = math.inf
+            
         if self.epoch < self.initial_epoch:
             (all_anchors, all_labels, all_label_weights, all_bbox_targets,
              all_bbox_weights, pos_inds_list, neg_inds_list,
