@@ -346,6 +346,7 @@ class RepPointsHead(AnchorFreeHead):
         # for each image, we compute valid flags of multi level grids
         valid_flag_list = []
         for img_id, img_meta in enumerate(batch_img_metas):
+            img_meta['pad_shape'] = featmap_sizes if hasattr(img_meta, "pad_shape") else img_meta['pad_shape']
             multi_level_flags = self.prior_generator.valid_flags(
                 featmap_sizes, img_meta['pad_shape'], device=device)
             valid_flag_list.append(multi_level_flags)
