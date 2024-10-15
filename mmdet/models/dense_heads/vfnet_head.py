@@ -299,7 +299,7 @@ class VFNetHead(ATSSHead, FCOSHead):
         cls_feat = self.relu(self.vfnet_cls_dconv(cls_feat, dcn_offset))
         cls_score = self.vfnet_cls(cls_feat)
 
-        if self.training:
+        if self.training or self.adv_attack:
             return cls_score, bbox_pred, bbox_pred_refine
         else:
             return cls_score, bbox_pred_refine
