@@ -110,6 +110,7 @@ class PointAssigner(BaseAssigner):
             gt_lvl = gt_bboxes_lvl[idx]
             # get the index of points in this level
             lvl_idx = gt_lvl == points_lvl
+            points_range = points_range.to(lvl_idx.device)
             points_index = points_range[lvl_idx]
             # get the points in this level
             lvl_points = points_xy[lvl_idx, :]

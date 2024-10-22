@@ -320,6 +320,8 @@ class RepPointsHead(AnchorFreeHead):
 
         if self.training:
             return cls_out, pts_out_init, pts_out_refine
+        elif self.adv_attack:
+            return cls_out, pts_out_init, pts_out_refine
         else:
             return cls_out, self.points2bbox(pts_out_refine)
 
@@ -346,7 +348,6 @@ class RepPointsHead(AnchorFreeHead):
         # for each image, we compute valid flags of multi level grids
         valid_flag_list = []
         for img_id, img_meta in enumerate(batch_img_metas):
-            img_meta['pad_shape'] = featmap_sizes if hasattr(img_meta, "pad_shape") else img_meta['pad_shape']
             multi_level_flags = self.prior_generator.valid_flags(
                 featmap_sizes, img_meta['pad_shape'], device=device)
             valid_flag_list.append(multi_level_flags)
@@ -717,6 +718,7 @@ class RepPointsHead(AnchorFreeHead):
         # target for refinement stage
         center_list, valid_flag_list = self.get_points(featmap_sizes,
                                                        batch_img_metas, device)
+
         pts_coordinate_preds_refine = self.offset_to_pts(
             center_list, pts_preds_refine)
         bbox_list = []
@@ -742,7 +744,32 @@ class RepPointsHead(AnchorFreeHead):
         (labels_list, label_weights_list, bbox_gt_list_refine,
          candidate_list_refine, bbox_weights_list_refine,
          avg_factor_refine) = cls_reg_targets_refine
-
+        """
+        Args:
+            cls_score (Tensor): Box scores for each scale level
+                Has shape (N, num_classes, h_i, w_i).
+            pts_pred_init (Tensor): Points of shape
+                (batch_size, h_i * w_i, num_points * 2).
+            pts_pred_refine (Tensor): Points refined of shape
+                (batch_size, h_i * w_i, num_points * 2).
+            labels (Tensor): Ground truth class indices with shape
+                (batch_size, h_i * w_i).
+            label_weights (Tensor): Label weights of shape
+                (batch_size, h_i * w_i).
+            bbox_gt_init (Tensor): BBox regression targets in the init stage
+                of shape (batch_size, h_i * w_i, 4).
+            bbox_weights_init (Tensor): BBox regression loss weights in the
+                init stage of shape (batch_size, h_i * w_i, 4).
+            bbox_gt_refine (Tensor): BBox regression targets in the refine
+                stage of shape (batch_size, h_i * w_i, 4).
+            bbox_weights_refine (Tensor): BBox regression loss weights in the
+                refine stage of shape (batch_size, h_i * w_i, 4).
+            stride (int): Point stride.
+            avg_factor_init (int): Average factor that is used to average
+                the loss in the init stage.
+            avg_factor_refine (int): Average factor that is used to average
+                the loss in the refine stage.
+        """
         # compute loss
         losses_cls, losses_pts_init, losses_pts_refine = multi_apply(
             self.loss_by_feat_single,
@@ -821,6 +848,7 @@ class RepPointsHead(AnchorFreeHead):
         for level_idx, (cls_score, bbox_pred, priors) in enumerate(
                 zip(cls_score_list, bbox_pred_list, mlvl_priors)):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
+            #bbox_pred = self.points2bbox(bbox_pred)
             bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
 
             cls_score = cls_score.permute(1, 2,
